@@ -1,0 +1,18 @@
+# Go build output
+bin/
+*.test
+*.out
+
+# Python bytecode / cache
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Demo scratch (demo.sh writes under /tmp, but guard an in-repo run too)
+.weave/
+
+# OS / editor
+.DS_Store
+.idea/
+.vscode/
+*.swp
