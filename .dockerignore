@@ -1,0 +1,61 @@
+# Git
+.git
+.gitignore
+.gitattributes
+
+# Documentation
+*.md
+!README.md
+ARCHITECTURE.md
+DESIGN-*.md
+
+# CI/CD
+.github
+
+# Build artifacts
+bin/
+*.exe
+*.dll
+*.so
+*.dylib
+coverage.out
+coverage.html
+
+# Test and temporary files
+*.test
+*.out
+*_test.go
+test-e2e.sh
+demo.sh
+*.tmp
+*.temp
+tmp/
+temp/
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.Python
+*.so
+.Python
+
+# Go
+vendor/
+
+# Docker
+Dockerfile
+.dockerignore
+
+# Misc
+*.log
+.env
+.env.local

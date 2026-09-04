@@ -1,0 +1,64 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  release:
+    name: Create Release
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.25.5'
+
+      - name: Extract version
+        id: version
+        run: |
+          VERSION=${GITHUB_REF#refs/tags/v}
+          echo "version=${VERSION}" >> $GITHUB_OUTPUT
+          echo "version=${VERSION}"
+
+      - name: Build binaries
+        run: |
+          mkdir -p release
+          GOOS=linux GOARCH=amd64 go build -ldflags="-s -w" -o release/weave-linux-amd64 ./cmd/weave
+          GOOS=linux GOARCH=arm64 go build -ldflags="-s -w" -o release/weave-linux-arm64 ./cmd/weave
+          GOOS=darwin GOARCH=amd64 go build -ldflags="-s -w" -o release/weave-darwin-amd64 ./cmd/weave
+          GOOS=darwin GOARCH=arm64 go build -ldflags="-s -w" -o release/weave-darwin-arm64 ./cmd/weave
+
+      - name: Create checksums
+        run: |
+          cd release
+          shasum -a 256 weave-* > sha256sums.txt
+
+      - name: Run tests
+        run: go test -v ./...
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: |
+            release/weave-*
+            release/sha256sums.txt
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push Docker images
+        run: |
+          echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+          docker build -t ghcr.io/${{ github.repository }}:${{ steps.version.outputs.version }} .
+          docker build -t ghcr.io/${{ github.repository }}:latest .
+          docker push ghcr.io/${{ github.repository }}:${{ steps.version.outputs.version }}
+          docker push ghcr.io/${{ github.repository }}:latest
