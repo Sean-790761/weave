@@ -18,7 +18,10 @@ linters:
   default: standard
   enable:
     - bodyclose
-    - misspell
+  # Not enabled: misspell. It cannot tell prose from identifiers, so with a
+  # locale set it flags Go standard library names (syscall.WaitStatus.Signaled
+  # today, context.Canceled the moment anyone uses it) as spelling mistakes.
+  # Six findings on this repo, none of them a typo.
 
   settings:
     errcheck:
@@ -33,12 +36,6 @@ linters:
         - shadow
         # Struct layout here is written to be read, not packed.
         - fieldalignment
-
-    misspell:
-      # No locale: this repo is written in British English on purpose
-      # (behaviour, parallelise, analogue), so pinning a locale would make
-      # misspell flag the author's prose instead of actual typos.
-      locale: "UK"
 
   exclusions:
     generated: lax
