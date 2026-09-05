@@ -40,13 +40,17 @@ type OutputDecl struct {
 }
 
 type TaskSpec struct {
-	RunRef    string       `json:"runRef"`
-	AgentName string       `json:"agentName"`
-	ItemID    string       `json:"itemID,omitempty"`
-	Attempt   int          `json:"attempt"`
-	Image     string       `json:"image"`
-	Command   []string     `json:"command"`
-	Outputs   []OutputDecl `json:"outputs,omitempty"`
+	RunRef    string   `json:"runRef"`
+	AgentName string   `json:"agentName"`
+	ItemID    string   `json:"itemID,omitempty"`
+	Attempt   int      `json:"attempt"`
+	Image     string   `json:"image"`
+	Command   []string `json:"command"`
+	// Env is the agent's own environment, already rendered: no {{ }} ever
+	// reaches a task. Reserved WEAVE_* names are added by the engine and take
+	// precedence, so a topology cannot forge WEAVE_RESUME_INPUT.
+	Env     map[string]string `json:"env,omitempty"`
+	Outputs []OutputDecl      `json:"outputs,omitempty"`
 }
 
 type TaskStatus struct {
