@@ -1,0 +1,49 @@
+# golangci-lint v2 configuration.
+#
+# Deliberately close to the default linter set. Everything enabled here has to
+# pass on every push, so a linter earns its place by catching real bugs, not by
+# existing: a config that flags four hundred style opinions is a config people
+# start merging around.
+#
+# The defaults (errcheck, govet, ineffassign, staticcheck, unused) already
+# cover the mistakes that matter; staticcheck in v2 also absorbs what used to
+# be gosimple and stylecheck.
+version: "2"
+
+run:
+  timeout: 5m
+  tests: true
+
+linters:
+  default: standard
+  enable:
+    - bodyclose
+    - misspell
+
+  settings:
+    errcheck:
+      # A dropped `v, ok := x.(T)` is how a nil deref gets three frames away
+      # from the line that caused it.
+      check-type-assertions: true
+
+    govet:
+      enable-all: true
+      disable:
+        # Flags every legitimate `err :=` inside a new scope.
+        - shadow
+        # Struct layout here is written to be read, not packed.
+        - fieldalignment
+
+    misspell:
+      locale: US
+
+  exclusions:
+    generated: lax
+    paths:
+      # Example agents are written to be read as documentation.
+      - examples
+
+formatters:
+  enable:
+    - gofmt
+    - goimports

@@ -13,39 +13,30 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Set up Go
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@v7
         with:
-          go-version: '1.25.5'
+          # One source of truth for the Go version; setup-go caches modules and
+          # build output on its own, so no separate cache step is needed.
+          go-version-file: go.mod
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v7
         with:
           python-version: '3.x'
 
-      - name: Cache Go modules
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.cache/go-build
-            ~/go/pkg/mod
-          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
-          restore-keys: |
-            ${{ runner.os }}-go-
+      - name: Run Go tests
+        run: make test
 
-      - name: Download dependencies
-        run: go mod download
-
-      - name: Run unit tests
-        run: go test -v -race ./...
+      - name: Install Python test deps
+        run: pip install -r requirements-dev.txt
 
       - name: Run end-to-end tests
-        run: bash test-e2e.sh
-
-      - name: Build binary
-        run: go build -o bin/weave ./cmd/weave
+        # Deps are already installed on the runner, so reuse the ambient
+        # interpreter instead of letting the Makefile build a venv.
+        run: make SYSTEM_PYTHON=1 e2e
 
   build:
     name: Build
@@ -54,22 +45,18 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Set up Go
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@v7
         with:
-          go-version: '1.25.5'
+          go-version-file: go.mod
 
       - name: Build for multiple platforms
-        run: |
-          GOOS=linux GOARCH=amd64 go build -o bin/weave-linux-amd64 ./cmd/weave
-          GOOS=linux GOARCH=arm64 go build -o bin/weave-linux-arm64 ./cmd/weave
-          GOOS=darwin GOARCH=amd64 go build -o bin/weave-darwin-amd64 ./cmd/weave
-          GOOS=darwin GOARCH=arm64 go build -o bin/weave-darwin-arm64 ./cmd/weave
+        run: make build-all
 
       - name: Upload artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: weave-binaries
           path: bin/weave-*
@@ -80,25 +67,16 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Set up Go
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@v7
         with:
-          go-version: '1.25.5'
+          go-version-file: go.mod
 
-      - name: Run go vet
-        run: go vet ./...
-
-      - name: Run go fmt check
-        run: |
-          if [ -n "$(gofmt -l .)" ]; then
-            echo "Go code is not formatted:"
-            gofmt -l .
-            exit 1
-          fi
-
-      - name: Check for common Go issues
-        run: |
-          go install honnef.co/go/tools/cmd/staticcheck@latest
-          staticcheck ./... || true
+      - name: golangci-lint
+        uses: golangci/golangci-lint-action@v9
+        with:
+          # Pinned: Lint is a required check, so a new release adding a check
+          # should not turn every open PR red without anyone touching them.
+          version: v2.13.2
