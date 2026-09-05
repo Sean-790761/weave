@@ -35,7 +35,10 @@ linters:
         - fieldalignment
 
     misspell:
-      locale: US
+      # No locale: this repo is written in British English on purpose
+      # (behaviour, parallelise, analogue), so pinning a locale would make
+      # misspell flag the author's prose instead of actual typos.
+      locale: "UK"
 
   exclusions:
     generated: lax
