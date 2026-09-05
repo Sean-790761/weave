@@ -4,9 +4,17 @@
 Two asks, not one, because that is where the naive single-shot resume design
 breaks: the second question must not be answered by the first answer.
 """
-import sys, os
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "sdk", "python"))
+import os
+import sys
+
+# Use absolute path for SDK since weave changes working directory.
+sdk_path = os.path.join(os.environ.get("WEAVE_WORKSPACE", ""), "sdk", "python")
+if not os.path.isdir(sdk_path):
+    sdk_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "sdk", "python"))
+sys.path.insert(0, sdk_path)
+
 import weave
+
 
 def main():
     state = weave.load_state()
@@ -33,6 +41,7 @@ def main():
         findings=state["findings"],      # list -> stored as JSON text
     )
     print("done")
+
 
 if __name__ == "__main__":
     main()

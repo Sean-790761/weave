@@ -104,8 +104,8 @@ func Run(c Config, argv []string) int {
 func (c Config) build(code int) *envelope.Envelope {
 	base := envelope.Envelope{V: envelope.Version, Attempt: c.Attempt}
 
-	switch {
-	case code == envelope.ExitAsk:
+	switch code {
+	case envelope.ExitAsk:
 		var ask struct {
 			Prompt    string `json:"prompt"`
 			RequestID string `json:"requestId"`
@@ -125,7 +125,7 @@ func (c Config) build(code int) *envelope.Envelope {
 		base.RequestID = ask.RequestID
 		return &base
 
-	case code == 0:
+	case 0:
 		outs, err := readOutputs(c.outputPath())
 		if err != nil {
 			base.Kind = envelope.KindFailed

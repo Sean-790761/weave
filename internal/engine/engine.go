@@ -96,11 +96,15 @@ func (e *Engine) Reconcile(ctx context.Context, t *model.Task) (bool, error) {
 }
 
 func (e *Engine) specFor(t *model.Task) *executor.ExecSpec {
-	env := map[string]string{
-		"WEAVE_RUN":   t.Spec.RunRef,
-		"WEAVE_AGENT": t.Spec.AgentName,
-		"WEAVE_ITEM":  t.Spec.ItemID,
+	env := make(map[string]string, len(t.Spec.Env)+5)
+	for k, v := range t.Spec.Env {
+		env[k] = v
 	}
+	// Reserved names are written last on purpose: a topology that sets
+	// WEAVE_RESUME_INPUT itself must not be able to fake an answer.
+	env["WEAVE_RUN"] = t.Spec.RunRef
+	env["WEAVE_AGENT"] = t.Spec.AgentName
+	env["WEAVE_ITEM"] = t.Spec.ItemID
 	if ui := t.Status.UserInput; ui != nil && ui.Response != nil {
 		env["WEAVE_RESUME_INPUT"] = *ui.Response
 		env["WEAVE_RESUME_REQUEST_ID"] = ui.RequestID

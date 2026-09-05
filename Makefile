@@ -1,4 +1,6 @@
-.PHONY: all build test clean lint e2e ci install docker-build docker-test
+.PHONY: all build build-all install test test-coverage test-python test-python-coverage \
+	e2e e2e-sandbox lint lint-py fmt fmt-py check-py ci ci-fast clean clean-venv dev deps \
+	venv install-py docker-build docker-test help
 
 # Variables
 BINARY_NAME=weave
@@ -7,6 +9,34 @@ CMD_DIR=./cmd/weave
 GO_FILES=$(shell find . -name '*.go' -type f)
 VERSION=$(shell git describe --tags --always --dirty 2>/dev/null || echo "dev")
 LDFLAGS=-ldflags "-X main.version=$(VERSION)"
+
+# ---------------------------------------------------------------------------
+# Python toolchain
+#
+# Every Python target runs out of a project-local virtualenv ($(VENV)) that is
+# created and kept in sync with requirements-dev.txt automatically. A fresh
+# clone can run `make e2e` with no manual `pip install`, and the result no
+# longer depends on whichever python3 happens to be first on PATH (a Homebrew
+# 3.14 without pytest, for example).
+#
+#   make e2e                   # bootstraps .venv if needed, then runs pytest
+#   make SYSTEM_PYTHON=1 e2e   # use the ambient python3 (CI images, nix, ...)
+#   make venv                  # just create/refresh the venv
+#   make clean-venv            # throw it away
+# ---------------------------------------------------------------------------
+PYTHON     ?= python3
+VENV       ?= .venv
+VENV_PY     = $(VENV)/bin/python
+VENV_STAMP  = $(VENV)/.deps-installed
+PY_REQS     = requirements-dev.txt
+
+ifeq ($(SYSTEM_PYTHON),1)
+PY      := $(PYTHON)
+PY_DEPS :=
+else
+PY      := $(VENV_PY)
+PY_DEPS := $(VENV_STAMP)
+endif
 
 # Build
 all: build
@@ -41,29 +71,48 @@ test-coverage:
 	@go tool cover -html=coverage.out -o coverage.html
 	@echo "Coverage report: coverage.html"
 
-e2e: build
-	@echo "Running end-to-end tests..."
-	@bash test-e2e.sh
+test-python: $(PY_DEPS)
+	@echo "Running Python unit tests..."
+	@$(PY) -m pytest tests/unit
 
-e2e-sandbox: build
-	@echo "Running sandboxed end-to-end tests..."
-	@bash test-e2e.sh
+test-python-coverage: $(PY_DEPS)
+	@echo "Running Python tests with coverage..."
+	@$(PY) -m pytest tests/ --cov=sdk --cov-report=html --cov-report=term-missing
+
+e2e: build $(PY_DEPS)
+	@echo "Running end-to-end tests..."
+	@$(PY) -m pytest tests/e2e
+
+e2e-sandbox: e2e
+	@echo "Sandboxed e2e is the same path as e2e (local executor runs in a temp dir)"
+
+# Python environment
+venv: $(VENV_STAMP)
+
+$(VENV_STAMP): $(PY_REQS)
+	@command -v $(PYTHON) >/dev/null 2>&1 || { echo "$(PYTHON) not found on PATH"; exit 1; }
+	@test -x $(VENV_PY) || { echo "Creating virtualenv in $(VENV)..."; $(PYTHON) -m venv $(VENV); }
+	@echo "Installing Python dev dependencies into $(VENV)..."
+	@$(VENV_PY) -m pip install --quiet --upgrade pip
+	@$(VENV_PY) -m pip install --quiet -r $(PY_REQS)
+	@touch $@
 
 # Linting
 lint:
-	@echo "Running go vet..."
-	@go vet ./...
-	@echo "Checking gofmt..."
-	@if [ -n "$$(gofmt -l .)" ]; then \
-		echo "Go code is not formatted:"; \
-		gofmt -l .; \
-		exit 1; \
+	@echo "Running golangci-lint..."
+	@if ! command -v golangci-lint &> /dev/null; then \
+		echo "golangci-lint not found. Installing..."; \
+		curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $$(go env GOPATH)/bin latest; \
 	fi
+	@golangci-lint run --timeout=5m --config=.golangci.yml
 	@echo "Linting complete"
 
 # CI
-ci: lint test e2e-sandbox
+ci: lint test test-python lint-py e2e-sandbox
 	@echo "CI pipeline complete"
+
+ci-fast: lint test e2e-sandbox
+	@echo "Fast CI pipeline complete"
 
 # Docker
 docker-build:
@@ -79,9 +128,14 @@ docker-test: docker-build
 clean:
 	@echo "Cleaning..."
 	@rm -rf $(BUILD_DIR)
-	@rm -f coverage.out coverage.html
+	@rm -rf .pytest_cache .mypy_cache htmlcov
+	@rm -f coverage.out coverage.html .coverage
 	@go clean
-	@echo "Clean complete"
+	@echo "Clean complete (run 'make clean-venv' to also drop $(VENV))"
+
+clean-venv:
+	@echo "Removing $(VENV)..."
+	@rm -rf $(VENV)
 
 # Development
 dev:
@@ -90,13 +144,34 @@ dev:
 
 fmt:
 	@echo "Formatting Go code..."
+	@if ! command -v goimports &> /dev/null; then \
+		echo "goimports not found. Installing..."; \
+		go install golang.org/x/tools/cmd/goimports@latest; \
+	fi
 	@gofmt -w .
 	@goimports -w .
 
-deps:
-	@echo "Updating dependencies..."
+deps: venv
+	@echo "Updating Go dependencies..."
 	@go mod tidy
 	@go mod download
+
+install-py: $(PY_DEPS)
+	@echo "Installing Python package into $(VENV)..."
+	@$(PY) -m pip install -e .
+
+lint-py: $(PY_DEPS)
+	@echo "Running Python linting..."
+	@$(PY) -m flake8 sdk/ tests/ examples/
+	@$(PY) -m mypy sdk/ examples/
+
+fmt-py: $(PY_DEPS)
+	@echo "Formatting Python code..."
+	@$(PY) -m black sdk/ tests/ examples/
+
+# Format first, then lint, so the linter sees the formatted code.
+check-py: fmt-py lint-py
+	@echo "Python code quality check complete"
 
 help:
 	@echo "Available targets:"
@@ -105,14 +180,25 @@ help:
 	@echo "  install       - Install to GOPATH/bin"
 	@echo "  test          - Run unit tests"
 	@echo "  test-coverage - Run tests with coverage"
-	@echo "  e2e           - Run end-to-end tests (test-e2e.sh)"
+	@echo "  test-python   - Run Python unit tests"
+	@echo "  test-python-coverage - Run Python tests with coverage"
+	@echo "  e2e           - Run end-to-end tests"
 	@echo "  e2e-sandbox   - Run sandboxed e2e tests"
 	@echo "  lint          - Run linting"
 	@echo "  ci            - Run full CI pipeline"
 	@echo "  docker-build  - Build Docker image"
 	@echo "  docker-test   - Test Docker image"
 	@echo "  clean         - Clean build artifacts"
+	@echo "  clean-venv    - Remove the Python virtualenv ($(VENV))"
 	@echo "  dev           - Start development mode with hot reload"
 	@echo "  fmt           - Format Go code"
-	@echo "  deps          - Update dependencies"
+	@echo "  deps          - Update dependencies (Go modules + Python venv)"
+	@echo "  venv          - Create/refresh the Python virtualenv ($(VENV))"
+	@echo "  install-py    - Install Python package (editable) into the venv"
+	@echo "  lint-py       - Run Python linting"
+	@echo "  fmt-py        - Format Python code"
 	@echo "  help          - Show this help"
+	@echo ""
+	@echo "Python targets bootstrap $(VENV) automatically."
+	@echo "Set SYSTEM_PYTHON=1 to use the ambient python3 instead, e.g."
+	@echo "  make SYSTEM_PYTHON=1 e2e"

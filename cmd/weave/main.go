@@ -23,6 +23,10 @@ const usage = `weave — spike build (single task, no DAG)
   weave send   --dir D --input V    answer the pending question
   weave status --dir D [--json]     show task state
 
+shim flags:
+  --termination-log path     where to write the envelope
+                             (default /dev/termination-log; env WEAVE_TERMINATION_LOG)
+
 run flags:
   --output name[:required]   declare an output (repeatable)
   --agent  name              agent name recorded on the task

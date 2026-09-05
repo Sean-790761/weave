@@ -1,0 +1,8 @@
+# Core dependencies
+# Add dependencies here as needed
+
+# Development dependencies
+-r requirements-dev.txt
+
+# Example: pytest>=6.0
+# Example: black>=22.0

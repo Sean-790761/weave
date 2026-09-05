@@ -7,12 +7,71 @@ bin/
 __pycache__/
 *.py[cod]
 *$py.class
+*.pyo
+*.egg-info/
+.eggs/
+dist/
+build/
 
-# Demo scratch (demo.sh writes under /tmp, but guard an in-repo run too)
+# Virtual environments
+venv/
+env/
+.env
+.venv/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Weave runtime state
 .weave/
 
-# OS / editor
-.DS_Store
-.idea/
-.vscode/
-*.swp
+# Test output
+htmlcov/
+.tox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+.hypothesis/
+.pytest_cache/
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# pyenv
+.python-version
+
+# celery beat schedule file
+celerybeat-schedule
+
+# SageMath parsed files
+*.sage.py
+
+# Environments
+.env
+.env.local
+.env.*.local
+
+# Rope project settings
+.ropeproject
+
+# mkdocs documentation
+/site
+
+# mypy
+.mypy_cache/
+.dmypy.json
+dmypy.json
+
+# Local agent settings
+.claude/
